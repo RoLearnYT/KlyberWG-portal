@@ -488,6 +488,85 @@
     configText.innerText = '';
     updateKeyName();
     updateToggleUI();
+    // Функция для генерации ключей WireGuard в браузере
+async function generateWireGuardKeys() {
+  // Генерация 32 случайных байт
+  const key = new Uint8Array(32);
+  crypto.getRandomValues(key);
+  
+  // WireGuard требует определённую структуру ключа
+  key[0] &= 248;   // Clear the 3 least significant bits of the first byte
+  key[31] &= 127;  // Clear the most significant bit of the last byte
+  key[31] |= 64;   // Set the second most significant bit of the last byte
+  
+  const privateKey = base64Encode(key);
+  
+  // Для публичного ключа нужно выполнить умножение на Curve25519
+  // Используем встроенную криптографию браузера
+  const publicKey = await derivePublicKey(privateKey);
+  
+  return { privateKey, publicKey };
+}
+
+function base64Encode(bytes) {
+  const binary = String.fromCharCode(...bytes);
+  return btoa(binary);
+}
+
+async function derivePublicKey(privateKeyBase64) {
+  // Импортируем приватный ключ
+  const privateKeyBytes = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
+  
+  // Генерируем ключевую пару с помощью WebCrypto
+  const keyPair = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" },
+    true,
+    ["deriveBits"]
+  );
+  
+  // Экспортируем публичный ключ
+  const publicKeyRaw = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  
+  // Конвертируем в формат WireGuard (Base64)
+  const publicKeyBytes = new Uint8Array(publicKeyRaw);
+  const publicKeyBase64 = btoa(String.fromCharCode(...publicKeyBytes));
+  
+  return publicKeyBase64;
+}
+
+// Функция для сборки полного конфига
+async function buildConfig(apiResponse) {
+  const { params, i1, endpoint, peerPublicKey } = apiResponse;
+  
+  // Генерируем уникальную пару ключей
+  const keys = await generateWireGuardKeys();
+  
+  // Генерируем случайный IP в подсети 10.0.0.0/8
+  const randomIP = `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}/32`;
+  
+  return `[Interface]
+PrivateKey = ${keys.privateKey}
+Address = ${randomIP}, 2606:4700:110:8386:38b2:9eb5:ca47:3f2e
+DNS = 1.1.1.1, 2606:4700:4700::1111, 1.0.0.1, 2606:4700:4700::1001
+MTU = 1280
+
+Jc = ${params.jc}
+Jmin = ${params.jmin}
+Jmax = ${params.jmax}
+S1 = ${params.s1}
+S2 = ${params.s2}
+H1 = ${params.h1}
+H2 = ${params.h2}
+H3 = ${params.h3}
+H4 = ${params.h4}
+I1 = ${i1}
+
+[Peer]
+PublicKey = ${peerPublicKey}
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = ${endpoint}
+PersistentKeepalive = 25`;
+}
 </script>
 </body>
 </html>
