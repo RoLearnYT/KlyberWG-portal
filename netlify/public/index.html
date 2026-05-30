@@ -51,7 +51,6 @@
             stroke: rgba(255, 255, 255, 0.8);
             stroke-width: 1.5;
             fill: none;
-            transition: transform 0.2s;
         }
 
         .plus-btn:hover {
@@ -59,10 +58,6 @@
             border-color: rgba(255, 255, 255, 0.3);
             transform: scale(1.04);
             box-shadow: 0 0 28px rgba(80, 140, 255, 0.25);
-        }
-
-        .plus-btn:active {
-            transform: scale(0.96);
         }
 
         .menu-overlay {
@@ -115,7 +110,6 @@
             color: rgba(255, 255, 255, 0.85);
             cursor: pointer;
             transition: background 0.12s;
-            letter-spacing: -0.2px;
         }
 
         .menu-item:hover {
@@ -223,18 +217,6 @@
             overflow-y: auto;
         }
 
-        .config-text::-webkit-scrollbar {
-            width: 5px;
-        }
-        .config-text::-webkit-scrollbar-track {
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px;
-        }
-        .config-text::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.2);
-            border-radius: 10px;
-        }
-
         .footer-row {
             display: flex;
             justify-content: space-between;
@@ -308,13 +290,6 @@
         .toast.show {
             transform: translateX(-50%) translateY(0);
         }
-
-        @media (max-width: 560px) {
-            .key-card { padding: 22px; }
-            .key-name { font-size: 20px; }
-            .toggle-option { padding: 6px 14px; font-size: 12px; }
-            .config-text { font-size: 11px; }
-        }
     </style>
 </head>
 <body>
@@ -361,6 +336,7 @@
 <div class="toast" id="toast">Скопировано</div>
 
 <script>
+    // DOM элементы
     const plusBtn = document.getElementById('plusBtn');
     const menuOverlay = document.getElementById('menuOverlay');
     const closeMenu = document.getElementById('closeMenu');
@@ -416,6 +392,57 @@
         });
     }
 
+    // Генерация случайного приватного ключа (32 байта в base64)
+    function generatePrivateKey() {
+        const key = new Uint8Array(32);
+        crypto.getRandomValues(key);
+        // WireGuard требует определённые биты
+        key[0] &= 248;
+        key[31] &= 127;
+        key[31] |= 64;
+        return btoa(String.fromCharCode(...key));
+    }
+
+    // Генерация случайного IP в подсети 10.0.0.0/8
+    function generateRandomIP() {
+        return `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}/32`;
+    }
+
+    // Сборка полного конфига из данных API
+    function buildConfig(apiData) {
+        const privateKey = generatePrivateKey();
+        const clientIP = generateRandomIP();
+        
+        // Параметры обфускации из ответа API
+        const p = apiData.params;
+        const i1 = apiData.i1;
+        const endpoint = apiData.endpoint;
+        const peerPublicKey = apiData.peerPublicKey;
+        
+        return `[Interface]
+PrivateKey = ${privateKey}
+Address = ${clientIP}, 2606:4700:110:8386:38b2:9eb5:ca47:3f2e
+DNS = 1.1.1.1, 2606:4700:4700::1111, 1.0.0.1, 2606:4700:4700::1001
+MTU = 1280
+
+Jc = ${p.jc}
+Jmin = ${p.jmin}
+Jmax = ${p.jmax}
+S1 = ${p.s1}
+S2 = ${p.s2}
+H1 = ${p.h1}
+H2 = ${p.h2}
+H3 = ${p.h3}
+H4 = ${p.h4}
+I1 = ${i1}
+
+[Peer]
+PublicKey = ${peerPublicKey}
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = ${endpoint}
+PersistentKeepalive = 25`;
+    }
+
     async function generateConfig(mode) {
         currentMode = mode;
         updateKeyName();
@@ -427,13 +454,15 @@
         if (mode === 'aggressive') strategyParam = 'aggressive';
 
         try {
-            // ИСПРАВЛЕНО: путь к Netlify функции
             const response = await fetch(`/.netlify/functions/generate?strategy=${strategyParam}`);
             const data = await response.json();
             
             if (data.success) {
-                currentConfigData = data;
-                configText.innerText = data.config;
+                // Собираем полный конфиг из данных API и локально сгенерированных ключей
+                const fullConfig = buildConfig(data);
+                
+                currentConfigData = { config: fullConfig, expires: data.expires };
+                configText.innerText = fullConfig;
                 expiryTextSpan.innerText = `до ${new Date(data.expires).toLocaleDateString('ru-RU')}`;
                 keyCard.classList.add('visible');
                 statusMsg.innerHTML = 'активен';
@@ -443,7 +472,9 @@
         } catch (err) {
             console.error(err);
             statusMsg.innerHTML = '✗ ошибка генерации';
-            setTimeout(() => { if (statusMsg.innerHTML === '✗ ошибка генерации') statusMsg.innerHTML = ''; }, 2500);
+            setTimeout(() => { 
+                if (statusMsg.innerHTML === '✗ ошибка генерации') statusMsg.innerHTML = ''; 
+            }, 2500);
         } finally {
             setLoading(false);
         }
@@ -484,89 +515,11 @@
         }
     });
 
+    // Начальное состояние
     keyCard.classList.remove('visible');
     configText.innerText = '';
     updateKeyName();
     updateToggleUI();
-    // Функция для генерации ключей WireGuard в браузере
-async function generateWireGuardKeys() {
-  // Генерация 32 случайных байт
-  const key = new Uint8Array(32);
-  crypto.getRandomValues(key);
-  
-  // WireGuard требует определённую структуру ключа
-  key[0] &= 248;   // Clear the 3 least significant bits of the first byte
-  key[31] &= 127;  // Clear the most significant bit of the last byte
-  key[31] |= 64;   // Set the second most significant bit of the last byte
-  
-  const privateKey = base64Encode(key);
-  
-  // Для публичного ключа нужно выполнить умножение на Curve25519
-  // Используем встроенную криптографию браузера
-  const publicKey = await derivePublicKey(privateKey);
-  
-  return { privateKey, publicKey };
-}
-
-function base64Encode(bytes) {
-  const binary = String.fromCharCode(...bytes);
-  return btoa(binary);
-}
-
-async function derivePublicKey(privateKeyBase64) {
-  // Импортируем приватный ключ
-  const privateKeyBytes = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
-  
-  // Генерируем ключевую пару с помощью WebCrypto
-  const keyPair = await crypto.subtle.generateKey(
-    { name: "ECDH", namedCurve: "P-256" },
-    true,
-    ["deriveBits"]
-  );
-  
-  // Экспортируем публичный ключ
-  const publicKeyRaw = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-  
-  // Конвертируем в формат WireGuard (Base64)
-  const publicKeyBytes = new Uint8Array(publicKeyRaw);
-  const publicKeyBase64 = btoa(String.fromCharCode(...publicKeyBytes));
-  
-  return publicKeyBase64;
-}
-
-// Функция для сборки полного конфига
-async function buildConfig(apiResponse) {
-  const { params, i1, endpoint, peerPublicKey } = apiResponse;
-  
-  // Генерируем уникальную пару ключей
-  const keys = await generateWireGuardKeys();
-  
-  // Генерируем случайный IP в подсети 10.0.0.0/8
-  const randomIP = `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}/32`;
-  
-  return `[Interface]
-PrivateKey = ${keys.privateKey}
-Address = ${randomIP}, 2606:4700:110:8386:38b2:9eb5:ca47:3f2e
-DNS = 1.1.1.1, 2606:4700:4700::1111, 1.0.0.1, 2606:4700:4700::1001
-MTU = 1280
-
-Jc = ${params.jc}
-Jmin = ${params.jmin}
-Jmax = ${params.jmax}
-S1 = ${params.s1}
-S2 = ${params.s2}
-H1 = ${params.h1}
-H2 = ${params.h2}
-H3 = ${params.h3}
-H4 = ${params.h4}
-I1 = ${i1}
-
-[Peer]
-PublicKey = ${peerPublicKey}
-AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = ${endpoint}
-PersistentKeepalive = 25`;
-}
 </script>
 </body>
 </html>
