@@ -19,7 +19,7 @@ exports.handler = async function(event, context) {
   const p = params[strategy] || params.default;
 
   // Эндпоинт и публичный ключ (из вашего рабочего конфига)
-  const ENDPOINT = "162.159.192.1:2408";
+  const ENDPOINT = "162.159.192.1:500";
   const PEER_PUBLIC_KEY = "bmXOC+F1FxEMF9dyiK2H5/1SU8HnrHD8+9psGJ6j2E8=";
 
   return {
