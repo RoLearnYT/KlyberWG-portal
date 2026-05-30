@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KlyberWG</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 30% 40%, #0a0a0f 0%, #020205 100%);
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 28px 32px;
+            display: flex;
+            justify-content: flex-end;
+            backdrop-filter: blur(12px);
+            background: rgba(8, 8, 14, 0.3);
+            z-index: 100;
+        }
+
+        .plus-btn {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+
+        .plus-btn svg {
+            width: 26px;
+            height: 26px;
+            stroke: rgba(255, 255, 255, 0.8);
+            stroke-width: 1.5;
+            fill: none;
+            transition: transform 0.2s;
+        }
+
+        .plus-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.04);
+            box-shadow: 0 0 28px rgba(80, 140, 255, 0.25);
+        }
+
+        .plus-btn:active {
+            transform: scale(0.96);
+        }
+
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(6px);
+            z-index: 199;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0.25s;
+        }
+
+        .menu-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .menu-card {
+            position: fixed;
+            top: 96px;
+            right: 32px;
+            width: 260px;
+            background: rgba(18, 18, 28, 0.9);
+            backdrop-filter: blur(24px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 38px rgba(0, 0, 0, 0.5);
+            padding: 10px 0;
+            z-index: 200;
+            opacity: 0;
+            transform: translateY(-10px) scale(0.96);
+            transition: opacity 0.2s, transform 0.2s;
+            pointer-events: none;
+        }
+
+        .menu-overlay.active .menu-card {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .menu-item {
+            padding: 14px 22px;
+            font-size: 15px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+            cursor: pointer;
+            transition: background 0.12s;
+            letter-spacing: -0.2px;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        hr {
+            margin: 8px 18px;
+            border: none;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .key-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: calc(100% - 48px);
+            max-width: 600px;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .key-card {
+            background: rgba(12, 12, 20, 0.7);
+            backdrop-filter: blur(20px);
+            border-radius: 36px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 28px 32px;
+            box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.45s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1);
+            pointer-events: auto;
+        }
+
+        .key-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .key-name {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, #a0b5ff 80%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .toggle-group {
+            display: flex;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+            border-radius: 60px;
+            padding: 4px;
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .toggle-option {
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: rgba(255, 255, 255, 0.5);
+            background: transparent;
+        }
+
+        .toggle-option.active {
+            background: rgba(80, 130, 255, 0.85);
+            color: white;
+            box-shadow: 0 0 10px rgba(80, 130, 255, 0.4);
+        }
+
+        .config-block {
+            background: rgba(0, 0, 0, 0.45);
+            border-radius: 24px;
+            padding: 20px;
+            margin-top: 8px;
+            border: 0.5px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .config-text {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #cbd5ff;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        .config-text::-webkit-scrollbar {
+            width: 5px;
+        }
+        .config-text::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        .config-text::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+
+        .footer-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .expiry {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 8px 22px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.28);
+        }
+
+        .status {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            margin-top: 16px;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.5s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: rgba(22, 22, 34, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 10px 24px;
+            border-radius: 60px;
+            font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 300;
+            transition: transform 0.2s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 560px) {
+            .key-card { padding: 22px; }
+            .key-name { font-size: 20px; }
+            .toggle-option { padding: 6px 14px; font-size: 12px; }
+            .config-text { font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="plus-btn" id="plusBtn">
+        <svg viewBox="0 0 24 24" stroke="currentColor">
+            <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+        </svg>
+    </div>
+</div>
+
+<div class="menu-overlay" id="menuOverlay">
+    <div class="menu-card">
+        <div class="menu-item" id="genBasic">Basic (BSC)</div>
+        <div class="menu-item" id="genStealth">Stealth (STL)</div>
+        <div class="menu-item" id="genAggressive">Aggressive (AGR)</div>
+        <hr>
+        <div class="menu-item" id="closeMenu">Закрыть</div>
+    </div>
+</div>
+
+<div class="key-container">
+    <div class="key-card" id="keyCard">
+        <div class="card-header">
+            <span class="key-name" id="keyName">KlyberWG_BSC1</span>
+            <div class="toggle-group" id="toggleGroup">
+                <span class="toggle-option" data-mode="default">BSC</span>
+                <span class="toggle-option" data-mode="stealth">STL</span>
+                <span class="toggle-option" data-mode="aggressive">AGR</span>
+            </div>
+        </div>
+        <div class="config-block">
+            <div class="config-text" id="configText"></div>
+        </div>
+        <div class="footer-row">
+            <span class="expiry" id="expiryText"></span>
+            <button class="copy-btn" id="copyBtn">Копировать</button>
+        </div>
+        <div class="status" id="statusMsg"></div>
+    </div>
+</div>
+
+<div class="toast" id="toast">Скопировано</div>
+
+<script>
+    const plusBtn = document.getElementById('plusBtn');
+    const menuOverlay = document.getElementById('menuOverlay');
+    const closeMenu = document.getElementById('closeMenu');
+    const genBasic = document.getElementById('genBasic');
+    const genStealth = document.getElementById('genStealth');
+    const genAggressive = document.getElementById('genAggressive');
+    const keyCard = document.getElementById('keyCard');
+    const keyNameSpan = document.getElementById('keyName');
+    const configText = document.getElementById('configText');
+    const expiryTextSpan = document.getElementById('expiryText');
+    const statusMsg = document.getElementById('statusMsg');
+    const copyBtn = document.getElementById('copyBtn');
+    const toast = document.getElementById('toast');
+    const toggleOptions = document.querySelectorAll('.toggle-option');
+
+    let currentMode = 'default';
+    let currentConfigData = null;
+
+    function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function setLoading(isLoading) {
+        if (isLoading) {
+            statusMsg.innerHTML = '<span class="loader"></span> генерация...';
+        } else if (currentConfigData) {
+            statusMsg.innerHTML = 'активен';
+        } else {
+            statusMsg.innerHTML = '';
+        }
+    }
+
+    function updateKeyName() {
+        let suffix = '';
+        if (currentMode === 'default') suffix = 'BSC1';
+        else if (currentMode === 'stealth') suffix = 'STL1';
+        else suffix = 'AGR1';
+        keyNameSpan.innerText = `KlyberWG_${suffix}`;
+    }
+
+    function updateToggleUI() {
+        toggleOptions.forEach(opt => {
+            const mode = opt.getAttribute('data-mode');
+            if ((mode === 'default' && currentMode === 'default') ||
+                (mode === 'stealth' && currentMode === 'stealth') ||
+                (mode === 'aggressive' && currentMode === 'aggressive')) {
+                opt.classList.add('active');
+            } else {
+                opt.classList.remove('active');
+            }
+        });
+    }
+
+    async function generateConfig(mode) {
+        currentMode = mode;
+        updateKeyName();
+        updateToggleUI();
+        setLoading(true);
+        
+        let strategyParam = 'default';
+        if (mode === 'stealth') strategyParam = 'stealth';
+        if (mode === 'aggressive') strategyParam = 'aggressive';
+
+        try {
+            // ИСПРАВЛЕНО: путь к Netlify функции
+            const response = await fetch(`/.netlify/functions/generate?strategy=${strategyParam}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                currentConfigData = data;
+                configText.innerText = data.config;
+                expiryTextSpan.innerText = `до ${new Date(data.expires).toLocaleDateString('ru-RU')}`;
+                keyCard.classList.add('visible');
+                statusMsg.innerHTML = 'активен';
+            } else {
+                throw new Error(data.error || 'ошибка');
+            }
+        } catch (err) {
+            console.error(err);
+            statusMsg.innerHTML = '✗ ошибка генерации';
+            setTimeout(() => { if (statusMsg.innerHTML === '✗ ошибка генерации') statusMsg.innerHTML = ''; }, 2500);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function openMenu() { menuOverlay.classList.add('active'); }
+    function closeMenuFn() { menuOverlay.classList.remove('active'); }
+    
+    plusBtn.addEventListener('click', openMenu);
+    closeMenu.addEventListener('click', closeMenuFn);
+    menuOverlay.addEventListener('click', (e) => { if (e.target === menuOverlay) closeMenuFn(); });
+
+    genBasic.addEventListener('click', () => { closeMenuFn(); generateConfig('default'); });
+    genStealth.addEventListener('click', () => { closeMenuFn(); generateConfig('stealth'); });
+    genAggressive.addEventListener('click', () => { closeMenuFn(); generateConfig('aggressive'); });
+
+    toggleOptions.forEach(opt => {
+        opt.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const mode = opt.getAttribute('data-mode');
+            if ((mode === 'default' && currentMode === 'default') ||
+                (mode === 'stealth' && currentMode === 'stealth') ||
+                (mode === 'aggressive' && currentMode === 'aggressive')) {
+                return;
+            }
+            if (mode === 'default') generateConfig('default');
+            else if (mode === 'stealth') generateConfig('stealth');
+            else if (mode === 'aggressive') generateConfig('aggressive');
+        });
+    });
+
+    copyBtn.addEventListener('click', () => {
+        if (currentConfigData && currentConfigData.config) {
+            navigator.clipboard.writeText(currentConfigData.config);
+            showToast('конфиг скопирован');
+        } else {
+            showToast('нет активного ключа');
+        }
+    });
+
+    keyCard.classList.remove('visible');
+    configText.innerText = '';
+    updateKeyName();
+    updateToggleUI();
+</script>
+</body>
+</html>
